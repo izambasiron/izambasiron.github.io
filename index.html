@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang='en'>
+  <head>
+    <meta charset='UTF-8'>
+    <link href='bower_components/bootstrap/dist/css/bootstrap.min.css' rel='stylesheet'>
+    <link href='bower_components/font-awesome/css/font-awesome.min.css' rel='stylesheet'>
+    <title>Random Number Simulation</title>
+    <style>
+      .calc {
+        padding-top: 1em; }
+        .calc h1 {
+          margin-top: 0; }
+      
+      #chart {
+        padding-bottom: 1em; }
+    </style>
+  </head>
+  <body>
+    <div class='jumbotron'>
+      <div class='container'>
+        <h1>Random Number Simulation</h1>
+        <p>
+          A simple simulation of the proposed random number generation to examine how many tries it takes to complete the list of 3000 data set. I assume step value to be between 1 - 999 and multiplier between 1 - 99. You can change these values below or hit the `Start` button when ready.
+        </p>
+        <form class='form-inline'>
+          <div class='form-group'>
+            <label for='data'>Data</label>
+            <input class='form-control' id='data' placeholder='Data' type='text' value='3000'>
+          </div>
+          <div class='form-group'>
+            <label for='min-step'>Step</label>
+            <input class='form-control' id='min-step' placeholder='Minimum Step' type='text' value='1'>
+            <input class='form-control' id='max-step' placeholder='Maximum Step' type='text' value='999'>
+          </div>
+          <div class='form-group'>
+            <label for='min-multiplier'>Multiplier</label>
+            <input class='form-control' id='min-multiplier' placeholder='Minimum Multiplier' type='text' value='1'>
+            <input class='form-control' id='max-multiplier' placeholder='Maximum Multiplier' type='text' value='99'>
+          </div>
+          <button class='btn btn-primary' type='submit'>
+            Start&nbsp;
+            <span class='glyphicon glyphicon-send'></span>
+          </button>
+        </form>
+      </div>
+    </div>
+    <div class='container'>
+      <div class='row'>
+        <div class='col-lg-12'>
+          <canvas height='300' id='chart' width='1000'></canvas>
+        </div>
+      </div>
+      <div class='row'>
+        <div class='col-lg-3'>
+          <div class='btn-danger col-lg-12 calc'>
+            <i class='fa fa-paper-plane fa-4x pull-left'></i>
+            <div class='small'>Maximum Tries</div>
+            <h1 id='max-tries'>0</h1>
+          </div>
+        </div>
+        <div class='col-lg-3'>
+          <div class='btn-warning col-lg-12 calc'>
+            <i class='fa fa-hand-peace-o fa-4x pull-left'></i>
+            <div class='small'>Total Tries</div>
+            <h1 id='total-tries'>0</h1>
+          </div>
+        </div>
+        <div class='col-lg-3'>
+          <div class='btn-primary col-lg-12 calc'>
+            <i class='fa fa-clock-o fa-4x pull-left'></i>
+            <div class='small'>Seconds Elapsed</div>
+            <h1 id='seconds-elapsed'>0</h1>
+          </div>
+        </div>
+        <div class='col-lg-3'>
+          <div class='btn-success col-lg-12 calc'>
+            <i class='fa fa-thumbs-o-up fa-4x pull-left'></i>
+            <div class='small'>Percent Completed</div>
+            <h1 id='completed'>0</h1>
+          </div>
+        </div>
+      </div>
+      <div class='row'>
+        <div class='col-lg-5'>
+          <h2>Registered companies</h2>
+          <table class='table' id='registered-companies'>
+            <thead>
+              <tr>
+                <th>Registration Number</th>
+                <th>Company Name</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class='text-center' colspan='10'>No records</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class='col-lg-7'>
+          <h2>Selected companies</h2>
+          <table class='table' id='selected-companies'>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Registration Number</th>
+                <th>Company Name</th>
+                <th>Initial Number</th>
+                <th>Step</th>
+                <th>Multiplier</th>
+                <th>Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class='text-center' colspan='10'>No records</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+  <script src='bower_components/jquery/dist/jquery.min.js'></script>
+  <script src='bower_components/bootstrap/dist/js/bootstrap.min.js'></script>
+  <script src='bower_components/ractive/ractive.min.js'></script>
+  <script src='bower_components/faker/build/build/faker.min.js'></script>
+  <script src='bower_components/Chart.js/Chart.min.js'></script>
+  <script id='data-template' type='text/ractive'>
+    {{#each companies:i}}
+    {{#if .}}
+    <tr>
+      <td>{{reg_number}}</td>
+      <td>{{name}}</td>
+    </tr>
+    {{/if}}
+    {{else}}
+    <tr>
+      <td class='text-center' colspan='10'>No records</td>
+    </tr>
+    {{/each}}
+  </script>
+  <script id='data-template-selected' type='text/ractive'>
+    {{#each companies:i}}
+    {{#if .}}
+    <tr>
+      <td>{{@index + 1}}</td>
+      <td>{{reg_number}}</td>
+      <td>{{name}}</td>
+      <td>{{init_number}}</td>
+      <td>{{step}}</td>
+      <td>{{multiplier}}</td>
+      <td>{{count}}</td>
+    </tr>
+    {{/if}}
+    {{else}}
+    <tr>
+      <td class='text-center' colspan='10'>No records</td>
+    </tr>
+    {{/each}}
+  </script>
+  <script>
+      var startTime = 0;
+      var triesNum = [];
+      var s = [];
+      var registeredCompaniesArray = [];
+      var delay = 50; // milliseconds
+    
+      var registeredCompanies = new Ractive({
+        el: '#registered-companies tbody',
+        template: '#data-template',
+        data: {
+          companies: {}
+        }
+      });
+    
+      var selectedCompanies = new Ractive({
+        el: '#selected-companies tbody',
+        template: '#data-template-selected',
+        data: {
+          companies: {}
+        }
+      });
+    
+      function populateCompanies(dataCount) {
+        var companies = {};
+        for(var i = 1; i <= dataCount; i++) {
+          companies[i.toString()] = {
+            name: faker.company.companyName(),
+            reg_number: i
+          };
+          registeredCompaniesArray.push(i);
+        }
+        return companies;
+      }
+    
+      /**
+       * @see http://stackoverflow.com/a/7228322/1391775
+       */
+      function randomIntFromInterval(min, max) {
+        return Math.floor(Math.random() * (max - min + 1) + min);
+      }
+    
+      function startGrabbing(tries, companies, dataCount, minHop, maxHop, minMultiplier, maxMultiplier) {
+        var randomPos = randomIntFromInterval(1, parseInt(dataCount));
+        var randomHop = randomIntFromInterval(parseInt(minHop), parseInt(maxHop));
+        var randomMultiplier = randomIntFromInterval(parseInt(minMultiplier), parseInt(maxMultiplier));
+        randomMultiplier++; // Include self
+        var registration_number = randomPos;
+        var selectedCompaniesData = selectedCompanies.get().companies;
+    
+        if (selectedCompaniesData[randomPos.toString()]) {
+          return setTimeout(function(){
+            startGrabbing(tries + 1, companies, dataCount, minHop, maxHop, minMultiplier, maxMultiplier)
+          }, delay);
+        }
+    
+        var count = 1;
+        while(registration_number <= dataCount && randomMultiplier > 0) {
+          var registration_number_string = registration_number.toString();
+          if (selectedCompaniesData[registration_number_string]) {
+            randomMultiplier--;
+            count++;
+            continue;
+          }
+    
+          if (companies[registration_number_string]) {
+            selectedCompaniesData[registration_number_string] = companies[registration_number_string];
+            selectedCompaniesData[registration_number_string]['init_number'] = randomPos;
+            selectedCompaniesData[registration_number_string]['step'] = randomHop;
+            selectedCompaniesData[registration_number_string]['multiplier'] = randomMultiplier;
+            selectedCompaniesData[registration_number_string]['count'] = count;
+            s.push(registration_number);
+            selectedCompanies.set('companies', selectedCompaniesData);
+            companies[registration_number_string] = undefined;
+            var id = registeredCompaniesArray.indexOf(registration_number);
+            registeredCompaniesArray.splice(id, 1);
+            registeredCompanies.set('companies', companies);
+          } else {
+            console.log('This should never happen!');
+            return;
+          }
+    
+          registration_number += randomHop;
+          randomMultiplier--;
+          count++;
+        }
+    
+        triesNum.push(tries);
+        triesChart.addData([tries], s.length);
+        $('#max-tries').html(Math.max.apply(Math, triesNum));
+        $('#total-tries').html(triesNum.reduce(add, 0));
+        $('#completed').html(100 - Math.ceil(
+          (parseInt($('#data').val()) - s.length) / parseInt($('#data').val()) * 100
+        ));
+        $('#seconds-elapsed').html(Math.floor((new Date().getTime() - startTime) / 1000));
+    
+        if (registeredCompaniesArray.length > 1) {
+          setTimeout(function(){
+            startGrabbing(1, companies, dataCount, minHop, maxHop, minMultiplier, maxMultiplier)
+          }, delay);
+        } else if(registeredCompaniesArray.length == 1) {
+          var key = registeredCompaniesArray[0].toString();
+          selectedCompaniesData[key] = companies[key];
+          s.push(registration_number);
+          selectedCompanies.set('companies', selectedCompaniesData);
+          companies[key] = undefined;
+          registeredCompaniesArray = [];
+          registeredCompanies.set('companies', companies);
+          $('#completed').html(100);
+        }
+      }
+    
+      function arrayOfInt(size) {
+        var num = [];
+        for(var i = 1; i <= parseInt(size); i++)
+        {
+          num.push(i);
+        }
+        return num;
+      }
+    
+      function add(a, b) {
+        return a + b;
+      }
+    
+      var triesChart;
+    
+      $(function() {
+        $('form').on('submit', function() {
+          var ctx = $("#chart").get(0).getContext("2d");
+          if (triesChart) triesChart.removeData();
+          triesChart = new Chart(ctx).Line({
+            labels: [],
+            datasets: [
+              {
+                label: '#',
+                data: [1]
+              }
+            ]
+          }, {
+            animation: false,
+            showXLabels: 10,
+    
+            ///Boolean - Whether grid lines are shown across the chart
+            scaleShowGridLines : true,
+    
+            //String - Colour of the grid lines
+            scaleGridLineColor : "rgba(0,0,0,.05)",
+    
+            //Number - Width of the grid lines
+            scaleGridLineWidth : 1,
+    
+            //Boolean - Whether to show horizontal lines (except X axis)
+            scaleShowHorizontalLines: true,
+    
+            //Boolean - Whether to show vertical lines (except Y axis)
+            scaleShowVerticalLines: false,
+    
+            //Boolean - Whether the line is curved between points
+            bezierCurve : false,
+    
+            //Number - Tension of the bezier curve between points
+            bezierCurveTension : 0.4,
+    
+            //Boolean - Whether to show a dot for each point
+            pointDot : true,
+    
+            //Number - Radius of each point dot in pixels
+            pointDotRadius : 4,
+    
+            //Number - Pixel width of point dot stroke
+            pointDotStrokeWidth : 1,
+    
+            //Number - amount extra to add to the radius to cater for hit detection outside the drawn point
+            pointHitDetectionRadius : 0,
+    
+            //Boolean - Whether to show a stroke for datasets
+            datasetStroke : true,
+    
+            //Number - Pixel width of dataset stroke
+            datasetStrokeWidth : 4,
+    
+            //Boolean - Whether to fill the dataset with a colour
+            datasetFill : false,
+            responsive: true
+          });
+    
+          startTime = new Date().getTime();
+          triesNum = [];
+          s = [];
+          registeredCompaniesArray = [];
+    
+          var companies = populateCompanies($('#data').val());
+          selectedCompanies.set('companies', {});
+          registeredCompanies.set('companies', companies);
+          setTimeout(function(){
+            startGrabbing(1, companies, $('#data').val(), $('#min-step').val(),
+              $('#max-step').val(), $('#min-multiplier').val(), $('#max-multiplier').val());
+          }, delay);
+          return false;
+        });
+      })
+  </script>
+</html>
