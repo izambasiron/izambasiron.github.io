@@ -11,9 +11,6 @@
         padding-top: .5em; }
         .calc h1 {
           margin-top: 0; }
-      
-      #chart {
-        padding-bottom: .5em; }
     </style>
   </head>
   <body>
@@ -46,11 +43,6 @@
       </div>
     </div>
     <div class='container'>
-      <div class='row'>
-        <div class='col-lg-12'>
-          <canvas height='300' id='chart' width='1000'></canvas>
-        </div>
-      </div>
       <div class='row'>
         <div class='col-lg-3'>
           <div class='btn-danger col-lg-12 calc'>
@@ -126,7 +118,6 @@
   <script src='bower_components/bootstrap/dist/js/bootstrap.min.js'></script>
   <script src='bower_components/ractive/ractive.min.js'></script>
   <script src='bower_components/faker/build/build/faker.min.js'></script>
-  <script src='bower_components/Chart.js/Chart.min.js'></script>
   <script id='data-template' type='text/ractive'>
     {{#each companies:i}}
     {{#if .}}
@@ -165,9 +156,10 @@
       var triesNum = [];
       var s = [];
       var registeredCompaniesArray = [];
-      var delay = 50; // milliseconds
+      var delay = 5; // milliseconds
     
-      var registeredCompanies = new Ractive({
+      var registeredCompanies = new Ractive(
+      {
         el: '#registered-companies tbody',
         template: '#data-template',
         data: {
@@ -175,7 +167,8 @@
         }
       });
     
-      var selectedCompanies = new Ractive({
+      var selectedCompanies = new Ractive(
+      {
         el: '#selected-companies tbody',
         template: '#data-template-selected',
         data: {
@@ -183,9 +176,11 @@
         }
       });
     
-      function populateCompanies(dataCount) {
+      function populateCompanies(dataCount)
+      {
         var companies = {};
-        for(var i = 1; i <= dataCount; i++) {
+        for(var i = 1; i <= dataCount; i++)
+        {
           companies[i.toString()] = {
             name: faker.company.companyName(),
             reg_number: i
@@ -198,11 +193,13 @@
       /**
        * @see http://stackoverflow.com/a/7228322/1391775
        */
-      function randomIntFromInterval(min, max) {
+      function randomIntFromInterval(min, max)
+      {
         return Math.floor(Math.random() * (max - min + 1) + min);
       }
     
-      function startGrabbing(tries, companies, dataCount, minHop, maxHop, minMultiplier, maxMultiplier) {
+      function startGrabbing(tries, companies, dataCount, minHop, maxHop, minMultiplier, maxMultiplier)
+      {
         var randomPos = randomIntFromInterval(1, parseInt(dataCount));
         var randomHop = randomIntFromInterval(parseInt(minHop), parseInt(maxHop));
         var randomMultiplier = randomIntFromInterval(parseInt(minMultiplier), parseInt(maxMultiplier));
@@ -210,22 +207,35 @@
         var registration_number = randomPos;
         var selectedCompaniesData = selectedCompanies.get().companies;
     
-        if (selectedCompaniesData[randomPos.toString()]) {
-          return setTimeout(function(){
-            startGrabbing(tries + 1, companies, dataCount, minHop, maxHop, minMultiplier, maxMultiplier)
-          }, delay);
+        if (selectedCompaniesData[randomPos.toString()])
+        {
+          randomPos = findNearest(companies, randomPos, 1);
+          if ( ! randomPos)
+          {
+            return setTimeout(function(){
+              startGrabbing(tries + 1, companies, dataCount, minHop, maxHop, minMultiplier, maxMultiplier)
+            }, delay);
+          }
+          else
+          {
+            registration_number = randomPos;
+          }
         }
     
         var count = 1;
-        while(registration_number <= dataCount && randomMultiplier > 0) {
+        while(registration_number <= dataCount && randomMultiplier > 0)
+        {
           var registration_number_string = registration_number.toString();
-          if (selectedCompaniesData[registration_number_string]) {
+          if (selectedCompaniesData[registration_number_string])
+          {
+            registration_number += randomHop;
             randomMultiplier--;
             count++;
             continue;
           }
     
-          if (companies[registration_number_string]) {
+          if (companies[registration_number_string])
+          {
             selectedCompaniesData[registration_number_string] = companies[registration_number_string];
             selectedCompaniesData[registration_number_string]['init_number'] = randomPos;
             selectedCompaniesData[registration_number_string]['step'] = randomHop;
@@ -248,7 +258,6 @@
         }
     
         triesNum.push(tries);
-        triesChart.addData([tries], s.length);
         $('#max-tries').html(Math.max.apply(Math, triesNum));
         $('#total-tries').html(triesNum.reduce(add, 0));
         $('#completed').html(100 - Math.ceil(
@@ -256,7 +265,8 @@
         ));
         $('#seconds-elapsed').html(Math.floor((new Date().getTime() - startTime) / 1000));
     
-        if (registeredCompaniesArray.length > 1) {
+        if (registeredCompaniesArray.length > 1)
+        {
           setTimeout(function(){
             startGrabbing(1, companies, dataCount, minHop, maxHop, minMultiplier, maxMultiplier)
           }, delay);
@@ -272,7 +282,8 @@
         }
       }
     
-      function arrayOfInt(size) {
+      function arrayOfInt(size)
+      {
         var num = [];
         for(var i = 1; i <= parseInt(size); i++)
         {
@@ -281,72 +292,31 @@
         return num;
       }
     
-      function add(a, b) {
+      function add(a, b)
+      {
         return a + b;
       }
     
-      var triesChart;
+      function findNearest(companies, number, count)
+      {
+        if (number > registeredCompaniesArray[registeredCompaniesArray.length - 1])
+        {
+          return registeredCompaniesArray[0];
+        }
+        else if (companies[(number + count).toString()])
+        {
+          return number + count;
+        }
+        else if (number + count < registeredCompaniesArray[registeredCompaniesArray.length - 1])
+        {
+          return findNearest(companies, number, count + 1);
+        }
+      }
     
-      $(function() {
-        $('form').on('submit', function() {
-          var ctx = $("#chart").get(0).getContext("2d");
-          if (triesChart) triesChart.removeData();
-          triesChart = new Chart(ctx).Line({
-            labels: [],
-            datasets: [
-              {
-                label: '#',
-                data: [1]
-              }
-            ]
-          }, {
-            animation: false,
-            showXLabels: 10,
-    
-            ///Boolean - Whether grid lines are shown across the chart
-            scaleShowGridLines : true,
-    
-            //String - Colour of the grid lines
-            scaleGridLineColor : "rgba(0,0,0,.05)",
-    
-            //Number - Width of the grid lines
-            scaleGridLineWidth : 1,
-    
-            //Boolean - Whether to show horizontal lines (except X axis)
-            scaleShowHorizontalLines: true,
-    
-            //Boolean - Whether to show vertical lines (except Y axis)
-            scaleShowVerticalLines: false,
-    
-            //Boolean - Whether the line is curved between points
-            bezierCurve : false,
-    
-            //Number - Tension of the bezier curve between points
-            bezierCurveTension : 0.4,
-    
-            //Boolean - Whether to show a dot for each point
-            pointDot : true,
-    
-            //Number - Radius of each point dot in pixels
-            pointDotRadius : 4,
-    
-            //Number - Pixel width of point dot stroke
-            pointDotStrokeWidth : 1,
-    
-            //Number - amount extra to add to the radius to cater for hit detection outside the drawn point
-            pointHitDetectionRadius : 0,
-    
-            //Boolean - Whether to show a stroke for datasets
-            datasetStroke : true,
-    
-            //Number - Pixel width of dataset stroke
-            datasetStrokeWidth : 4,
-    
-            //Boolean - Whether to fill the dataset with a colour
-            datasetFill : false,
-            responsive: true
-          });
-    
+      $(function()
+      {
+        $('form').on('submit', function()
+        {
           startTime = new Date().getTime();
           triesNum = [];
           s = [];
@@ -355,7 +325,8 @@
           var companies = populateCompanies($('#data').val());
           selectedCompanies.set('companies', {});
           registeredCompanies.set('companies', companies);
-          setTimeout(function(){
+          setTimeout(function()
+          {
             startGrabbing(1, companies, $('#data').val(), $('#min-step').val(),
               $('#max-step').val(), $('#min-multiplier').val(), $('#max-multiplier').val());
           }, delay);
